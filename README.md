@@ -1,58 +1,80 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Production-Ready Laravel 12 + Docker Boilerplate
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Setting up a new Laravel project for production is often a major friction point. Most online Docker setups are built strictly for local development. When pushed to cloud providers or a VPS, they break due to permission mismatches, missing production headers, non-optimized asset routing, or unmanaged background queue workers.
 
-## About Laravel
+This repository provides an enterprise-grade, highly optimized **Laravel 12 + Docker Starter Kit** designed to seamlessly bridge the gap between lightning-fast local development and secure, high-performance production environments.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Architecture & Key Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Multi-Stage Dockerfile:** Separates build dependencies from the final image, drastically reducing size and removing development overhead in production.
 
-## Learning Laravel
+- **Production-Grade Nginx:** Pre-configured with security headers, client caching policies, Gzip compression, and optimized asset handling.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- **Process Management via Supervisor:** Native management for background tasks inside the container, keeping `queue:work` and the Laravel Task Scheduler alive and self-healing.
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Zero-Friction Linux/Ubuntu Permissions:** Docker volumes and configurations mapped natively to prevent `storage` or `bootstrap/cache` write-permission blocks.
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+- **Robust CI/CD Workflow:** Complete GitHub Actions pipeline executing code style checks (Laravel Pint), static analysis (Larastan), and automated testing on every push or pull request.
 
-## Agentic Development
+---
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## ⚡ Quick Start (Up in 60 Seconds)
+
+Get your optimized development stack running locally by following these simple steps:
+
+### 1. Clone the repository
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/your-username/laravel-12-docker-production-boilerplate.git
+cd laravel-12-docker-production-boilerplate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### 2. Environment Setup
 
-## Contributing
+```bash
+cp .env.example .env
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### 3. Build and Start the Stack
 
-## Code of Conduct
+```bash
+docker compose up -d --build
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+That's it! Your production-ready stack is live. Access your application via your browser at:
+**http://localhost:8080**
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Services Included
 
-## License
+The local development ecosystem manages four highly isolated services:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Service | Description |
+|---|---|
+| **App (PHP-FPM)** | Running the latest PHP engine with essential extensions configured (`pdo_mysql`, `mbstring`, `bcmath`, `gd`, `opcache`, `xml`). |
+| **Webserver (Nginx)** | Serving as the fast, reverse-proxy front-facing gateway. |
+| **Database (MySQL 8.0)** | Isolated relational storage with dedicated persistent data volumes. |
+| **Cache/Queue (Redis)** | Lighting-fast in-memory cache layer to process queues instantly. |
+
+---
+
+## Production Deployment Pipeline
+
+When shifting this stack towards your live servers, the container initializes using a dedicated automated script. Every container startup performs the following operations safely:
+
+1. Waits for DB connectivity verification.
+2. Forces isolated database migrations (`php artisan migrate --force`).
+3. Clears developer environment noise (`php artisan optimize:clear`).
+4. Caches routes, configurations, views, and events (`php artisan optimize`).
+5. Boots Supervisor to manage long-running queue processes.
+
+---
+
+## Contributing & Feedback
+
+This boilerplate is completely open-source and ready for community expansion. If you find a bug, want to suggest structural performance tuning, or want to enhance the multi-stage CI/CD workflow, please feel free to open an **Issue** or submit a **Pull Request**!
+
+If this starter kit saves you hours of DevOps setup on your next deploy, please drop a ⭐ star on this repository to help keep it visible and actively maintained!
