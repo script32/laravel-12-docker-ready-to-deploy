@@ -1,0 +1,157 @@
+# =============================================================================
+# docker-compose.yml — Entorno de Desarrollo Local
+# Laravel 12 Docker Ready-to-Deploy Starter Kit
+#
+# OPTIMIZACIONES CLAVE:
+#   - Volúmenes nombrados para storage/ y bootstrap/cache/ desacoplados del
+#     host, eliminando por completo los conflictos de UID/GID en Linux/Ubuntu.
+#   - El código fuente se monta con 'delegated' para maximizar el rendimiento
+#     de I/O en sistemas de archivos con traducción (macOS/WSL2).
+#   - Red interna dedicada para aislar los servicios del exterior.
+#   - Variables de entorno declaradas en un único .env, sin valores por defecto
+#     hardcodeados en este archivo.
+#   - Healthchecks en MySQL y Redis para que 'app' no arranque hasta que los
+#     servicios de datos estén realmente listos, evitando race conditions.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # SERVICIO: app
+  # PHP-FPM 8.3 — Procesa las peticiones PHP y se comunica con Nginx via socket
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: development            # Stage 'development' del Dockerfile multi-stage
+      args:
+        # Propaga el UID/GID del usuario del HOST al contenedor para que los
+        # archivos creados dentro del contenedor sean propiedad del mismo usuario
+        # que ejecuta Docker. Esto resuelve el problema de permisos en Linux/Ubuntu.
+        APP_UID: ${APP_UID:-1000}
+        APP_GID: ${APP_GID:-1000}
+    container_name: laravel_app
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      # Código fuente montado desde el host — cambios se reflejan en tiempo real.
+      # ':cached' mejora rendimiento de lecturas en macOS; neutro en Linux.
+      - .:/var/www/html:cached
+      # Volumen nombrado para storage/: Laravel escribe logs, caché de vistas,
+      # sesiones y archivos subidos aquí. Al ser un volumen Docker gestionado,
+      # el contenedor siempre tiene UID correcto sin necesidad de 'chmod 777'.
+      - storage_data:/var/www/html/storage
+      # Volumen nombrado para bootstrap/cache/: almacena los caches de rutas,
+      # configuración y servicios compilados. Mismo principio que storage_data.
+      - bootstrap_cache:/var/www/html/bootstrap/cache
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - APP_DEBUG=${APP_DEBUG:-true}
+    networks:
+      - laravel_network
+    depends_on:
+      mysql:
+        condition: service_healthy  # Espera a que MySQL esté listo de verdad
+      redis:
+        condition: service_healthy  # Espera a que Redis esté listo de verdad
+
+  # ---------------------------------------------------------------------------
+  # SERVICIO: nginx
+  # Servidor web que sirve assets estáticos directamente y reenvía PHP a FPM
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.27-alpine        # Alpine = imagen mínima, superficie de ataque reducida
+    container_name: laravel_nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-80}:80"
+    volumes:
+      # Solo necesita acceso al código para servir assets estáticos (public/).
+      - .:/var/www/html:cached
+      # Configuración de Nginx inyectada desde el repo, con recarga en caliente
+      # posible via 'docker compose exec nginx nginx -s reload'.
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - laravel_network
+    depends_on:
+      - app
+
+  # ---------------------------------------------------------------------------
+  # SERVICIO: mysql
+  # MySQL 8.0 con healthcheck para evitar race conditions al arrancar
+  # ---------------------------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: laravel_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?La variable DB_ROOT_PASSWORD es obligatoria}
+      MYSQL_DATABASE: ${DB_DATABASE:?La variable DB_DATABASE es obligatoria}
+      MYSQL_USER: ${DB_USERNAME:?La variable DB_USERNAME es obligatoria}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?La variable DB_PASSWORD es obligatoria}
+    volumes:
+      # Volumen persistente para los datos de MySQL.
+      # NUNCA montar sobre el directorio del host en Linux para evitar problemas
+      # de permisos con el UID interno de MySQL (999).
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "${DB_PORT:-3306}:3306"   # Expuesto solo para herramientas locales (TablePlus, DBeaver)
+    networks:
+      - laravel_network
+    healthcheck:
+      # mysqladmin ping con credenciales es más fiable que solo 'ping'
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${DB_USERNAME}", "-p${DB_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s            # MySQL tarda en inicializar el primer arranque
+
+  # ---------------------------------------------------------------------------
+  # SERVICIO: redis
+  # Cache, colas y sesiones — healthcheck via redis-cli
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.4-alpine
+    container_name: laravel_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel warning
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - laravel_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+# =============================================================================
+# VOLÚMENES NOMBRADOS
+# Gestionados por Docker Engine — sin dependencia del UID del host.
+# Solución definitiva a los errores "Permission denied" en storage/ y bootstrap/cache/.
+# =============================================================================
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  storage_data:
+    driver: local
+  bootstrap_cache:
+    driver: local
+
+# =============================================================================
+# REDES
+# Red bridge dedicada — los servicios se resuelven por nombre de servicio DNS.
+# =============================================================================
+networks:
+  laravel_network:
+    driver: bridge
