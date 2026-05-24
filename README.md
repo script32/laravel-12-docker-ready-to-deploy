@@ -20,7 +20,7 @@ This repository provides an enterprise-grade, highly optimized **Laravel 12 + Do
 
 ---
 
-## ⚡ Quick Start (Up in 60 Seconds)
+## Quick Start (Up in 60 Seconds)
 
 Get your optimized development stack running locally by following these simple steps:
 
@@ -77,4 +77,4 @@ When shifting this stack towards your live servers, the container initializes us
 
 This boilerplate is completely open-source and ready for community expansion. If you find a bug, want to suggest structural performance tuning, or want to enhance the multi-stage CI/CD workflow, please feel free to open an **Issue** or submit a **Pull Request**!
 
-If this starter kit saves you hours of DevOps setup on your next deploy, please drop a ⭐ star on this repository to help keep it visible and actively maintained!
+If this starter kit saves you hours of DevOps setup on your next deploy, please drop a star on this repository to help keep it visible and actively maintained!
